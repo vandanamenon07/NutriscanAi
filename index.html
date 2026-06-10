@@ -237,7 +237,7 @@
     <section class="cta-section">
         <h2>Ready to transform how you eat?</h2>
         <p>NutriScan AI makes healthy eating effortless. Just point, scan, and know exactly what's on your plate.</p>
-        <button class="btn btn-cta">Launch NutriScan AI →</button>
+        <button id="launch-nutriscan-btn" class="btn btn-cta">Launch NutriScan AI →</button>
         <p class="cta-subtext">Built with Teachable Machine, TensorFlow.js, and modern web technologies.</p>
     </section>
 
@@ -448,6 +448,10 @@ const metadataURL = URL + "metadata.json";
 
         document.querySelector('.hero-actions .btn-primary').addEventListener('click', (event) => {
             event.preventDefault();
+            document.querySelector('.demo-section').scrollIntoView({ behavior: 'smooth' });
+        });
+
+        document.getElementById('launch-nutriscan-btn').addEventListener('click', () => {
             document.querySelector('.demo-section').scrollIntoView({ behavior: 'smooth' });
         });
 
