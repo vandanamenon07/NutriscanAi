@@ -17,8 +17,8 @@
             <span class="logo-text">NutriScan AI</span>
         </div>
         <nav class="nav-links">
-            <a href="#">Features</a>
-            <a href="#">How It Works</a>
+            <a href="#" id="nav-features">Features</a>
+            <a href="#" id="nav-how-it-works">How It Works</a>
             <a href="#">Demo</a>
         </nav>
         <button class="btn btn-outline btn-nav">Try Demo</button>
@@ -35,7 +35,7 @@
             
             <div class="hero-actions">
                 <button class="btn btn-primary"><span class="icon-camera">📷</span> Try Live Demo</button>
-                <button class="btn btn-secondary">Explore Features</button>
+                <button id="hero-explore-features" class="btn btn-secondary">Explore Features</button>
             </div>
 
             <div class="hero-checkmarks">
@@ -51,6 +51,42 @@
                 <div class="card-info">
                     <h4>Avocado Toast</h4>
                     <p>320 cal • Health Score 8.5</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="demo-section">
+        <div class="section-header">
+            <h2>Live Food Detection</h2>
+            <p>Use your webcam or upload an image to identify food and see nutrition details instantly.</p>
+        </div>
+        <div class="demo-grid">
+            <div class="preview-card">
+                <div class="preview-header">
+                    <h3>Camera / Image Preview</h3>
+                    <span class="status-badge" id="live-status">Waiting for model</span>
+                </div>
+                <div id="webcam-container" class="preview-media hidden"></div>
+                <img id="uploaded-image" class="preview-media hidden" alt="Uploaded food preview">
+                <div class="demo-controls">
+                    <button id="start-webcam-btn" class="btn btn-primary">Start Webcam</button>
+                    <button id="stop-webcam-btn" class="btn btn-secondary">Stop Webcam</button>
+                    <label class="upload-button btn btn-outline">
+                        Upload Image
+                        <input id="image-upload" type="file" accept="image/*">
+                    </label>
+                </div>
+                <div class="prediction-summary">
+                    <p id="prediction-text">Point the camera at a food item or upload an image to begin.</p>
+                </div>
+            </div>
+            <div class="info-card-card">
+                <div class="section-card">
+                    <h3>Food Information</h3>
+                    <div id="food-info-card" class="food-info-card">
+                        <p class="empty-message">Food information will appear here after a successful prediction.</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -201,7 +237,7 @@
     <section class="cta-section">
         <h2>Ready to transform how you eat?</h2>
         <p>NutriScan AI makes healthy eating effortless. Just point, scan, and know exactly what's on your plate.</p>
-        <button class="btn btn-cta">Launch NutriScan AI →</button>
+        <button id="launch-nutriscan-btn" class="btn btn-cta">Launch NutriScan AI →</button>
         <p class="cta-subtext">Built with Teachable Machine, TensorFlow.js, and modern web technologies.</p>
     </section>
 
@@ -210,5 +246,241 @@
         <p class="footer-team">NutriScan AI Project Team</p>
     </footer>
 
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+    <script src="foodData.js"></script>
+    <script>
+        // Use the local model folder or replace with the online URL below.
+      const URL = "https://teachablemachine.withgoogle.com/models/sKJFFwmgi/";
+
+const modelURL = URL + "model.json";
+const metadataURL = URL + "metadata.json";
+
+        let model, maxPredictions;
+        let webcam;
+        let webcamCanvas;
+        let isWebcamActive = false;
+        let modelReady = null;
+
+        const startWebcamBtn = document.getElementById('start-webcam-btn');
+        const stopWebcamBtn = document.getElementById('stop-webcam-btn');
+        const imageUpload = document.getElementById('image-upload');
+        const webcamContainer = document.getElementById('webcam-container');
+        const uploadedImage = document.getElementById('uploaded-image');
+        const predictionText = document.getElementById('prediction-text');
+        const foodInfoCard = document.getElementById('food-info-card');
+        const liveStatus = document.getElementById('live-status');
+
+        async function initModel() {
+            if (modelReady) {
+                return modelReady;
+            }
+            modelReady = (async () => {
+                model = await tmImage.load(modelURL, metadataURL);
+                maxPredictions = model.getTotalClasses();
+                liveStatus.textContent = 'Model loaded and ready';
+                liveStatus.classList.remove('status-error');
+                liveStatus.classList.add('status-ready');
+                startWebcamBtn.disabled = false;
+                imageUpload.disabled = false;
+            })();
+            return modelReady;
+        }
+
+        async function ensureModelReady() {
+            if (!modelReady) {
+                liveStatus.textContent = 'Loading model, please wait...';
+                startWebcamBtn.disabled = true;
+                imageUpload.disabled = true;
+                await initModel();
+            }
+            return model;
+        }
+
+        async function startWebcam() {
+            await ensureModelReady();
+            if (!model) {
+                return;
+            }
+
+            stopWebcam();
+            webcamContainer.innerHTML = '';
+            webcam = new tmImage.Webcam(400, 400, true);
+            await webcam.setup();
+            await webcam.play();
+            webcamCanvas = webcam.canvas;
+            webcamContainer.appendChild(webcamCanvas);
+            webcamContainer.classList.remove('hidden');
+            uploadedImage.classList.add('hidden');
+            isWebcamActive = true;
+            liveStatus.textContent = 'Webcam active';
+            liveStatus.classList.add('status-live');
+            window.requestAnimationFrame(loopWebcam);
+        }
+
+        function stopWebcam() {
+            if (webcam && isWebcamActive) {
+                webcam.stop();
+            }
+            isWebcamActive = false;
+            webcamContainer.classList.add('hidden');
+            webcamContainer.innerHTML = '';
+            liveStatus.textContent = 'Webcam stopped';
+            liveStatus.classList.remove('status-live');
+        }
+
+        async function loopWebcam() {
+            if (!isWebcamActive) {
+                return;
+            }
+            webcam.update();
+            await predictFromVideo();
+            window.requestAnimationFrame(loopWebcam);
+        }
+
+        async function predictFromVideo() {
+            if (!webcam || !webcam.canvas) {
+                return;
+            }
+            const prediction = await model.predict(webcam.canvas);
+            handlePrediction(prediction);
+        }
+
+        async function predictFromImage(imageElement) {
+            if (!model) {
+                await ensureModelReady();
+            }
+            const prediction = await model.predict(imageElement);
+            handlePrediction(prediction);
+        }
+
+        function handlePrediction(predictions) {
+            const topPrediction = getTopPrediction(predictions);
+            if (!topPrediction) {
+                renderEmptyMessage('No prediction returned from the model.');
+                return;
+            }
+            const displayName = topPrediction.className;
+            predictionText.textContent = `${displayName} — ${(topPrediction.probability * 100).toFixed(1)}% confidence`;
+            updateFoodInfoCard(displayName, topPrediction.probability);
+        }
+
+        function getTopPrediction(predictions) {
+            if (!predictions || predictions.length === 0) {
+                return null;
+            }
+            return predictions.reduce((best, current) => current.probability > best.probability ? current : best);
+        }
+
+        function findFoodInfo(foodName) {
+            const cleanedName = foodName.trim().toLowerCase();
+            return Object.entries(foodData).find(([key]) => key.toLowerCase() === cleanedName)?.[1] || null;
+        }
+
+        function updateFoodInfoCard(predictedName, probability) {
+            // Connect Teachable Machine prediction to the food information display.
+            const foodInfo = findFoodInfo(predictedName);
+            if (!foodInfo) {
+                renderEmptyMessage('Food information not available. Try another food item.');
+                return;
+            }
+            foodInfoCard.innerHTML = renderFoodDetails(predictedName, foodInfo, probability);
+        }
+
+        function renderFoodDetails(foodName, foodInfo, probability) {
+            return `
+                <div class="food-title-row">
+                    <div>
+                        <h4>${foodName}</h4>
+                        <p class="food-confidence">${(probability * 100).toFixed(1)}% confidence</p>
+                    </div>
+                    <span class="food-badge">${foodInfo.category}</span>
+                </div>
+                <div class="info-row">
+                    <div>
+                        <strong>Health Rate</strong>
+                        <span>${foodInfo.healthRate}</span>
+                    </div>
+                    <div>
+                        <strong>Calories</strong>
+                        <span>${foodInfo.calories}</span>
+                    </div>
+                </div>
+                <div>
+                    <strong>Nutrition</strong>
+                    <p>${foodInfo.nutrition}</p>
+                </div>
+                <div>
+                    <strong>Benefits</strong>
+                    <p>${foodInfo.benefits}</p>
+                </div>
+            `;
+        }
+
+        function renderEmptyMessage(message) {
+            foodInfoCard.innerHTML = `<p class="empty-message">${message}</p>`;
+        }
+
+        startWebcamBtn.addEventListener('click', async () => {
+            await startWebcam();
+        });
+
+        stopWebcamBtn.addEventListener('click', () => {
+            stopWebcam();
+        });
+
+        imageUpload.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+            stopWebcam();
+            await ensureModelReady();
+            const fileUrl = window.URL.createObjectURL(file);
+            uploadedImage.src = fileUrl;
+            uploadedImage.onload = async () => {
+                uploadedImage.classList.remove('hidden');
+                webcamContainer.classList.add('hidden');
+                await predictFromImage(uploadedImage);
+                window.URL.revokeObjectURL(fileUrl);
+            };
+        });
+
+        document.querySelector('.hero-actions .btn-primary').addEventListener('click', (event) => {
+            event.preventDefault();
+            document.querySelector('.demo-section').scrollIntoView({ behavior: 'smooth' });
+        });
+        document.querySelector('.btn-nav').addEventListener('click', (event) => {
+    event.preventDefault();
+    document.querySelector('.demo-section').scrollIntoView({
+        behavior: 'smooth'
+    });
+});
+
+        document.getElementById('hero-explore-features').addEventListener('click', (event) => {
+            event.preventDefault();
+            document.querySelector('.features-section').scrollIntoView({ behavior: 'smooth' });
+        });
+
+        document.getElementById('nav-features').addEventListener('click', (event) => {
+            event.preventDefault();
+            document.querySelector('.features-section').scrollIntoView({ behavior: 'smooth' });
+        });
+
+        document.getElementById('nav-how-it-works').addEventListener('click', (event) => {
+            event.preventDefault();
+            document.querySelector('.how-it-works').scrollIntoView({ behavior: 'smooth' });
+        });
+
+        document.getElementById('launch-nutriscan-btn').addEventListener('click', () => {
+            document.querySelector('.demo-section').scrollIntoView({ behavior: 'smooth' });
+        });
+
+        initModel().catch((error) => {
+            liveStatus.textContent = 'Model failed to load. Check network or model path.';
+            liveStatus.classList.add('status-error');
+            console.error(error);
+        });
+    </script>
 </body>
 </html>
