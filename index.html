@@ -67,7 +67,7 @@
                     <h3>Camera / Image Preview</h3>
                     <span class="status-badge" id="live-status">Waiting for model</span>
                 </div>
-                <video id="webcam" autoplay playsinline muted class="preview-media hidden"></video>
+                <div id="webcam-container" class="preview-media hidden"></div>
                 <img id="uploaded-image" class="preview-media hidden" alt="Uploaded food preview">
                 <div class="demo-controls">
                     <button id="start-webcam-btn" class="btn btn-primary">Start Webcam</button>
@@ -246,51 +246,71 @@
         <p class="footer-team">NutriScan AI Project Team</p>
     </footer>
 
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
     <script src="foodData.js"></script>
     <script>
         // Use the local model folder or replace with the online URL below.
-        const MODEL_PATH = './my_model'; // or use 'https://teachablemachine.withgoogle.com/models/sKJFFwmgi';
-        const modelURL = MODEL_PATH + '/model.json';
-        const metadataURL = MODEL_PATH + '/metadata.json';
+      const URL = "https://teachablemachine.withgoogle.com/models/sKJFFwmgi/";
+
+const modelURL = URL + "model.json";
+const metadataURL = URL + "metadata.json";
 
         let model, maxPredictions;
         let webcam;
+        let webcamCanvas;
         let isWebcamActive = false;
+        let modelReady = null;
 
         const startWebcamBtn = document.getElementById('start-webcam-btn');
         const stopWebcamBtn = document.getElementById('stop-webcam-btn');
         const imageUpload = document.getElementById('image-upload');
-        const videoElement = document.getElementById('webcam');
+        const webcamContainer = document.getElementById('webcam-container');
         const uploadedImage = document.getElementById('uploaded-image');
         const predictionText = document.getElementById('prediction-text');
         const foodInfoCard = document.getElementById('food-info-card');
         const liveStatus = document.getElementById('live-status');
 
         async function initModel() {
-            model = await tmImage.load(modelURL, metadataURL);
-            maxPredictions = model.getTotalClasses();
-            liveStatus.textContent = 'Model loaded and ready';
-            liveStatus.classList.add('status-ready');
+            if (modelReady) {
+                return modelReady;
+            }
+            modelReady = (async () => {
+                model = await tmImage.load(modelURL, metadataURL);
+                maxPredictions = model.getTotalClasses();
+                liveStatus.textContent = 'Model loaded and ready';
+                liveStatus.classList.remove('status-error');
+                liveStatus.classList.add('status-ready');
+                startWebcamBtn.disabled = false;
+                imageUpload.disabled = false;
+            })();
+            return modelReady;
+        }
+
+        async function ensureModelReady() {
+            if (!modelReady) {
+                liveStatus.textContent = 'Loading model, please wait...';
+                startWebcamBtn.disabled = true;
+                imageUpload.disabled = true;
+                await initModel();
+            }
+            return model;
         }
 
         async function startWebcam() {
+            await ensureModelReady();
             if (!model) {
-                predictionText.textContent = 'Loading model, please wait...';
                 return;
             }
 
             stopWebcam();
-
+            webcamContainer.innerHTML = '';
             webcam = new tmImage.Webcam(400, 400, true);
             await webcam.setup();
             await webcam.play();
-            const streamSource = webcam.webcam?.srcObject || webcam.webcam?.captureStream?.();
-            if (streamSource) {
-                videoElement.srcObject = streamSource;
-                videoElement.play();
-            }
-            videoElement.classList.remove('hidden');
+            webcamCanvas = webcam.canvas;
+            webcamContainer.appendChild(webcamCanvas);
+            webcamContainer.classList.remove('hidden');
             uploadedImage.classList.add('hidden');
             isWebcamActive = true;
             liveStatus.textContent = 'Webcam active';
@@ -301,12 +321,12 @@
         function stopWebcam() {
             if (webcam && isWebcamActive) {
                 webcam.stop();
-                isWebcamActive = false;
-                videoElement.classList.add('hidden');
-                videoElement.srcObject = null;
-                liveStatus.textContent = 'Webcam stopped';
-                liveStatus.classList.remove('status-live');
             }
+            isWebcamActive = false;
+            webcamContainer.classList.add('hidden');
+            webcamContainer.innerHTML = '';
+            liveStatus.textContent = 'Webcam stopped';
+            liveStatus.classList.remove('status-live');
         }
 
         async function loopWebcam() {
@@ -319,11 +339,17 @@
         }
 
         async function predictFromVideo() {
+            if (!webcam || !webcam.canvas) {
+                return;
+            }
             const prediction = await model.predict(webcam.canvas);
             handlePrediction(prediction);
         }
 
         async function predictFromImage(imageElement) {
+            if (!model) {
+                await ensureModelReady();
+            }
             const prediction = await model.predict(imageElement);
             handlePrediction(prediction);
         }
@@ -409,11 +435,12 @@
                 return;
             }
             stopWebcam();
+            await ensureModelReady();
             const fileUrl = window.URL.createObjectURL(file);
             uploadedImage.src = fileUrl;
             uploadedImage.onload = async () => {
                 uploadedImage.classList.remove('hidden');
-                videoElement.classList.add('hidden');
+                webcamContainer.classList.add('hidden');
                 await predictFromImage(uploadedImage);
                 window.URL.revokeObjectURL(fileUrl);
             };
