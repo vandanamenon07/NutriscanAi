@@ -450,6 +450,12 @@ const metadataURL = URL + "metadata.json";
             event.preventDefault();
             document.querySelector('.demo-section').scrollIntoView({ behavior: 'smooth' });
         });
+        document.querySelector('.btn-nav').addEventListener('click', (event) => {
+    event.preventDefault();
+    document.querySelector('.demo-section').scrollIntoView({
+        behavior: 'smooth'
+    });
+});
 
         document.getElementById('hero-explore-features').addEventListener('click', (event) => {
             event.preventDefault();
