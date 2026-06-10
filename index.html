@@ -17,8 +17,8 @@
             <span class="logo-text">NutriScan AI</span>
         </div>
         <nav class="nav-links">
-            <a href="#">Features</a>
-            <a href="#">How It Works</a>
+            <a href="#" id="nav-features">Features</a>
+            <a href="#" id="nav-how-it-works">How It Works</a>
             <a href="#">Demo</a>
         </nav>
         <button class="btn btn-outline btn-nav">Try Demo</button>
@@ -35,7 +35,7 @@
             
             <div class="hero-actions">
                 <button class="btn btn-primary"><span class="icon-camera">📷</span> Try Live Demo</button>
-                <button class="btn btn-secondary">Explore Features</button>
+                <button id="hero-explore-features" class="btn btn-secondary">Explore Features</button>
             </div>
 
             <div class="hero-checkmarks">
@@ -449,6 +449,21 @@ const metadataURL = URL + "metadata.json";
         document.querySelector('.hero-actions .btn-primary').addEventListener('click', (event) => {
             event.preventDefault();
             document.querySelector('.demo-section').scrollIntoView({ behavior: 'smooth' });
+        });
+
+        document.getElementById('hero-explore-features').addEventListener('click', (event) => {
+            event.preventDefault();
+            document.querySelector('.features-section').scrollIntoView({ behavior: 'smooth' });
+        });
+
+        document.getElementById('nav-features').addEventListener('click', (event) => {
+            event.preventDefault();
+            document.querySelector('.features-section').scrollIntoView({ behavior: 'smooth' });
+        });
+
+        document.getElementById('nav-how-it-works').addEventListener('click', (event) => {
+            event.preventDefault();
+            document.querySelector('.how-it-works').scrollIntoView({ behavior: 'smooth' });
         });
 
         document.getElementById('launch-nutriscan-btn').addEventListener('click', () => {
