@@ -450,6 +450,12 @@ const metadataURL = URL + "metadata.json";
             event.preventDefault();
             document.querySelector('.demo-section').scrollIntoView({ behavior: 'smooth' });
         });
+        document.querySelector('.btn-nav').addEventListener('click', (event) => {
+    event.preventDefault();
+    document.querySelector('.demo-section').scrollIntoView({
+        behavior: 'smooth'
+    });
+});
 
         initModel().catch((error) => {
             liveStatus.textContent = 'Model failed to load. Check network or model path.';
